@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mono Money Tracker</title>
+  <title>Mozz</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -230,6 +230,15 @@
       color: var(--muted);
     }
 
+    button.danger {
+      background: var(--negative);
+      color: #fffef9;
+    }
+
+    button.danger:hover {
+      opacity: 0.9;
+    }
+
     .prediction-card {
       border-style: dashed;
     }
@@ -248,6 +257,12 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+    }
+
+    .history-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     .transactions {
@@ -299,6 +314,58 @@
       color: var(--negative);
     }
 
+    #importFile {
+      display: none;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(12, 17, 21, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 50;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-backdrop.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .modal-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      max-width: 420px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: -0.02em;
+    }
+
+    .modal-warning {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
     @media (max-width: 720px) {
       body {
         padding: 2rem 1rem 3rem;
@@ -320,7 +387,7 @@
   <main class="wrap">
     <header class="hero">
       <p class="tag">steady funds</p>
-      <h1>Mono Money Tracker</h1>
+      <h1>Mozz</h1>
       <p>Log inflow/outflow, stay minimal, and see the next move before you make it.</p>
     </header>
 
@@ -392,14 +459,33 @@
     <section class="card history">
       <div class="history-head">
         <h2>Ledger</h2>
-        <button type="button" class="ghost" id="clearHistory">clear history</button>
+        <div class="history-actions">
+          <button type="button" class="ghost" id="exportData">export</button>
+          <button type="button" class="ghost" id="importData">import</button>
+          <button type="button" class="ghost" id="clearHistory">clear history</button>
+        </div>
       </div>
       <ul class="transactions" id="transactionList"></ul>
     </section>
+    <input type="file" id="importFile" accept="application/json" />
   </main>
+
+  <div class="modal-backdrop hidden" id="importModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-labelledby="importModalTitle" aria-describedby="importModalDesc">
+      <p class="modal-title" id="importModalTitle">Replace current data?</p>
+      <p class="modal-warning" id="importModalDesc">
+        Importing will overwrite your balance and ledger. If you have not exported a backup, your current data will be lost.
+      </p>
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="modalCancel">cancel</button>
+        <button type="button" class="primary danger" id="modalConfirm">continue</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const STORAGE_KEY = 'mono-money-tracker';
+    const EXPORT_VERSION = '1.1.0';
     const state = {
       startingBalance: 0,
       transactions: []
@@ -414,6 +500,12 @@
     const predictionForm = document.getElementById('predictionForm');
     const predictionResult = document.getElementById('predictionResult');
     const clearHistoryBtn = document.getElementById('clearHistory');
+    const exportBtn = document.getElementById('exportData');
+    const importBtn = document.getElementById('importData');
+    const importInput = document.getElementById('importFile');
+    const importModal = document.getElementById('importModal');
+    const modalConfirm = document.getElementById('modalConfirm');
+    const modalCancel = document.getElementById('modalCancel');
 
     const predictionAmountInput = document.getElementById('predictionAmount');
     const predictionDirectionInput = document.getElementById('predictionDirection');
@@ -517,6 +609,78 @@
       renderPrediction();
     };
 
+    const buildExportPayload = () => {
+      persistState();
+      const totals = getTotals();
+      let storageSnapshot = {};
+      try {
+        storageSnapshot = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      } catch (error) {
+        console.error('Unable to read storage snapshot', error);
+      }
+      return {
+        version: EXPORT_VERSION,
+        exportedAt: new Date().toISOString(),
+        storageKey: STORAGE_KEY,
+        totals,
+        state: {
+          startingBalance: state.startingBalance,
+          transactions: state.transactions
+        },
+        storageSnapshot
+      };
+    };
+
+    const downloadState = () => {
+      const payload = JSON.stringify(buildExportPayload(), null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const link = document.createElement('a');
+      const stamp = new Date().toISOString().split('T')[0];
+      link.href = URL.createObjectURL(blob);
+      link.download = `mono-money-export-${stamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    };
+
+    const toggleImportModal = (open) => {
+      importModal.classList.toggle('hidden', !open);
+      importModal.setAttribute('aria-hidden', String(!open));
+    };
+
+    const extractStatePayload = (payload) => {
+      if (payload && typeof payload === 'object') {
+        if (payload.state && typeof payload.state === 'object') {
+          return payload.state;
+        }
+        if (payload.storageSnapshot && typeof payload.storageSnapshot === 'object') {
+          return payload.storageSnapshot;
+        }
+      }
+      return payload;
+    };
+
+    const applyImportedState = (data) => {
+      const normalized = extractStatePayload(data);
+      const incomingStart = Number(normalized.startingBalance);
+      const incomingTransactions = Array.isArray(normalized.transactions) ? normalized.transactions : [];
+      state.startingBalance = Number.isFinite(incomingStart) && incomingStart >= 0 ? incomingStart : 0;
+      state.transactions = incomingTransactions
+        .map((tx) => ({
+          id: tx.id || (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)),
+          note: (tx.note || '').toString(),
+          amount: Number(tx.amount) || 0,
+          direction: tx.direction === 'outflow' ? 'outflow' : 'inflow',
+          timestamp: tx.timestamp || new Date().toISOString()
+        }))
+        .filter((tx) => tx.amount > 0)
+        .slice(0, 100);
+      persistState();
+      render();
+      startingBalanceInput.value = state.startingBalance ? state.startingBalance : '';
+    };
+
     startingBalanceInput.addEventListener('input', (event) => {
       state.startingBalance = Number(event.target.value) || 0;
       persistState();
@@ -559,6 +723,54 @@
       state.transactions = [];
       persistState();
       render();
+    });
+
+    exportBtn.addEventListener('click', () => {
+      downloadState();
+    });
+
+    importBtn.addEventListener('click', () => {
+      toggleImportModal(true);
+    });
+
+    modalCancel.addEventListener('click', () => {
+      toggleImportModal(false);
+    });
+
+    modalConfirm.addEventListener('click', () => {
+      toggleImportModal(false);
+      importInput.click();
+    });
+
+    importModal.addEventListener('click', (event) => {
+      if (event.target === importModal) {
+        toggleImportModal(false);
+      }
+    });
+
+    importInput.addEventListener('change', (event) => {
+      const [file] = event.target.files;
+      if (!file) {
+        event.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        try {
+          const parsed = JSON.parse(loadEvent.target.result);
+          if (typeof parsed !== 'object' || parsed === null) {
+            throw new Error('Invalid payload');
+          }
+          applyImportedState(parsed);
+        } catch (error) {
+          alert('Import failed. Please use a file exported from this tracker.');
+          console.error('Import error', error);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
     });
 
     hydrateState();
