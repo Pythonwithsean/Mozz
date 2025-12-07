@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mono Money Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-soft: #fdf8f1;
+      --bg-soft-alt: #edf3f0;
+      --ink: #0c1115;
+      --muted: #667074;
+      --border: rgba(12, 17, 21, 0.14);
+      --accent: #113f67;
+      --positive: #1d7c54;
+      --negative: #c2403b;
+      --card: rgba(255, 255, 255, 0.72);
+      --ghost: rgba(12, 17, 21, 0.06);
+      --radius: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(130deg, var(--bg-soft), var(--bg-soft-alt));
+      color: var(--ink);
+      display: flex;
+      justify-content: center;
+      padding: 3rem 1.25rem 4rem;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(17, 63, 103, 0.08), transparent 55%),
+        radial-gradient(circle at 80% 0%, rgba(29, 124, 84, 0.08), transparent 45%),
+        radial-gradient(circle at 70% 80%, rgba(194, 64, 59, 0.05), transparent 50%);
+      z-index: -1;
+    }
+
+    .wrap {
+      width: min(960px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .hero {
+      text-transform: uppercase;
+      letter-spacing: 0.08rem;
+    }
+
+    .hero .tag {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 4vw, 3rem);
+      letter-spacing: -0.04em;
+      margin: 0.35rem 0;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .balance-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat {
+      background: var(--card);
+      backdrop-filter: blur(7px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-height: 130px;
+    }
+
+    .stat-large {
+      grid-column: span 2;
+      min-height: 150px;
+    }
+
+    .stat .label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .stat .value {
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+    }
+
+    .value.inflow {
+      color: var(--positive);
+    }
+
+    .value.outflow {
+      color: var(--negative);
+    }
+
+    .stat.base input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      font: inherit;
+      font-size: 1.4rem;
+      border-bottom: 1px solid var(--border);
+      padding: 0.35rem 0;
+      color: var(--ink);
+    }
+
+    .stat.base input:focus {
+      outline: none;
+      border-bottom-color: var(--accent);
+    }
+
+    .stat small {
+      color: var(--muted);
+      opacity: 0.8;
+    }
+
+    .card {
+      background: var(--card);
+      backdrop-filter: blur(7px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .card h2 {
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 1rem;
+      color: var(--muted);
+    }
+
+    form {
+      display: grid;
+      gap: 1rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      background: rgba(255, 255, 255, 0.6);
+      font: inherit;
+      color: var(--ink);
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    button {
+      font: inherit;
+      padding: 0.9rem 1.4rem;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    button.primary {
+      background: var(--ink);
+      color: #fffef9;
+    }
+
+    button.primary:hover {
+      opacity: 0.9;
+    }
+
+    button.ghost {
+      background: var(--ghost);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .prediction-card {
+      border-style: dashed;
+    }
+
+    .prediction-result {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .prediction-result strong {
+      color: var(--ink);
+    }
+
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .transactions {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .transactions li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.9rem 1rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .transactions li.placeholder {
+      justify-content: center;
+      color: var(--muted);
+      border-style: dashed;
+    }
+
+    .tx-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    .tx-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .tx-amount {
+      font-size: 1.1rem;
+    }
+
+    .tx-amount.inflow {
+      color: var(--positive);
+    }
+
+    .tx-amount.outflow {
+      color: var(--negative);
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 2rem 1rem 3rem;
+      }
+
+      .stat-large {
+        grid-column: span 1;
+      }
+
+      .history-head {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <p class="tag">steady funds</p>
+      <h1>Mono Money Tracker</h1>
+      <p>Log inflow/outflow, stay minimal, and see the next move before you make it.</p>
+    </header>
+
+    <section class="balance-panel">
+      <div class="stat stat-large">
+        <span class="label">Balance</span>
+        <span class="value" id="balanceValue">$0.00</span>
+      </div>
+      <div class="stat">
+        <span class="label">Inflow</span>
+        <span class="value inflow" id="inflowValue">$0.00</span>
+      </div>
+      <div class="stat">
+        <span class="label">Outflow</span>
+        <span class="value outflow" id="outflowValue">$0.00</span>
+      </div>
+      <div class="stat base">
+        <label for="startingBalance" class="label">Base Funds</label>
+        <input id="startingBalance" type="number" step="0.01" min="0" placeholder="0.00" />
+        <small>Set where your balance begins.</small>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Log a movement</h2>
+      <form id="transactionForm">
+        <div>
+          <label for="note">note</label>
+          <textarea id="note" name="note" placeholder="rent, coffee, paycheck..."></textarea>
+        </div>
+        <div class="split">
+          <div>
+            <label for="amount">amount</label>
+            <input id="amount" name="amount" type="number" step="0.01" min="0.01" required />
+          </div>
+          <div>
+            <label for="direction">type</label>
+            <select id="direction" name="direction">
+              <option value="inflow">inflow</option>
+              <option value="outflow">outflow</option>
+            </select>
+          </div>
+        </div>
+        <button class="primary" type="submit">record</button>
+      </form>
+    </section>
+
+    <section class="card prediction-card">
+      <h2>Quick prediction</h2>
+      <form id="predictionForm">
+        <div class="split">
+          <div>
+            <label for="predictionAmount">amount</label>
+            <input id="predictionAmount" name="predictionAmount" type="number" step="0.01" min="0.01" />
+          </div>
+          <div>
+            <label for="predictionDirection">type</label>
+            <select id="predictionDirection" name="predictionDirection">
+              <option value="inflow">inflow</option>
+              <option value="outflow">outflow</option>
+            </select>
+          </div>
+        </div>
+        <button class="ghost" type="submit">preview</button>
+      </form>
+      <p class="prediction-result" id="predictionResult">Enter an amount to preview your next balance.</p>
+    </section>
+
+    <section class="card history">
+      <div class="history-head">
+        <h2>Ledger</h2>
+        <button type="button" class="ghost" id="clearHistory">clear history</button>
+      </div>
+      <ul class="transactions" id="transactionList"></ul>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'mono-money-tracker';
+    const state = {
+      startingBalance: 0,
+      transactions: []
+    };
+
+    const startingBalanceInput = document.getElementById('startingBalance');
+    const balanceValue = document.getElementById('balanceValue');
+    const inflowValue = document.getElementById('inflowValue');
+    const outflowValue = document.getElementById('outflowValue');
+    const transactionForm = document.getElementById('transactionForm');
+    const transactionList = document.getElementById('transactionList');
+    const predictionForm = document.getElementById('predictionForm');
+    const predictionResult = document.getElementById('predictionResult');
+    const clearHistoryBtn = document.getElementById('clearHistory');
+
+    const predictionAmountInput = document.getElementById('predictionAmount');
+    const predictionDirectionInput = document.getElementById('predictionDirection');
+
+    const currency = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    });
+
+    const persistState = () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    };
+
+    const hydrateState = () => {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) {
+        render();
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(saved);
+        state.startingBalance = Number(parsed.startingBalance) || 0;
+        state.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
+      } catch (err) {
+        console.error('Unable to read saved data', err);
+      }
+      render();
+      startingBalanceInput.value = state.startingBalance ? state.startingBalance : '';
+    };
+
+    const getTotals = () => {
+      const inflow = state.transactions
+        .filter((tx) => tx.direction === 'inflow')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      const outflow = state.transactions
+        .filter((tx) => tx.direction === 'outflow')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      const balance = state.startingBalance + inflow - outflow;
+      return { inflow, outflow, balance };
+    };
+
+    const renderStats = () => {
+      const totals = getTotals();
+      balanceValue.textContent = currency.format(totals.balance);
+      inflowValue.textContent = currency.format(totals.inflow);
+      outflowValue.textContent = currency.format(totals.outflow);
+    };
+
+    const renderTransactions = () => {
+      transactionList.innerHTML = '';
+      if (!state.transactions.length) {
+        const placeholder = document.createElement('li');
+        placeholder.textContent = 'No entries yet.';
+        placeholder.className = 'placeholder';
+        transactionList.appendChild(placeholder);
+        return;
+      }
+
+      state.transactions.forEach((tx) => {
+        const li = document.createElement('li');
+        const info = document.createElement('div');
+        info.className = 'tx-info';
+        const title = document.createElement('span');
+        title.textContent = tx.note || 'untitled';
+        const meta = document.createElement('span');
+        meta.className = 'tx-meta';
+        const date = new Date(tx.timestamp);
+        meta.textContent = date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+          ' · ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        info.appendChild(title);
+        info.appendChild(meta);
+
+        const amount = document.createElement('span');
+        amount.className = `tx-amount ${tx.direction}`;
+        const symbol = tx.direction === 'inflow' ? '+' : '-';
+        amount.textContent = `${symbol}${currency.format(tx.amount).replace('$', '')}`;
+
+        li.appendChild(info);
+        li.appendChild(amount);
+        transactionList.appendChild(li);
+      });
+    };
+
+    const renderPrediction = () => {
+      const previewAmount = Number(predictionAmountInput.value);
+      if (!previewAmount) {
+        predictionResult.textContent = 'Enter an amount to preview your next balance.';
+        return;
+      }
+      const { balance } = getTotals();
+      const direction = predictionDirectionInput.value;
+      const adjustment = direction === 'inflow' ? previewAmount : -previewAmount;
+      const projected = balance + adjustment;
+      predictionResult.innerHTML = `Projected balance after ${direction}: <strong>${currency.format(projected)}</strong>`;
+    };
+
+    const render = () => {
+      renderStats();
+      renderTransactions();
+      renderPrediction();
+    };
+
+    startingBalanceInput.addEventListener('input', (event) => {
+      state.startingBalance = Number(event.target.value) || 0;
+      persistState();
+      render();
+    });
+
+    transactionForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const amount = Number(formData.get('amount'));
+      if (!amount || amount <= 0) {
+        return;
+      }
+      const note = (formData.get('note') || '').trim();
+      const direction = formData.get('direction');
+      const transaction = {
+        id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+        note,
+        amount,
+        direction,
+        timestamp: new Date().toISOString()
+      };
+      state.transactions = [transaction, ...state.transactions].slice(0, 100);
+      persistState();
+      render();
+      event.target.reset();
+    });
+
+    predictionForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      renderPrediction();
+    });
+
+    predictionAmountInput.addEventListener('input', renderPrediction);
+    predictionDirectionInput.addEventListener('change', renderPrediction);
+
+    clearHistoryBtn.addEventListener('click', () => {
+      if (!state.transactions.length) return;
+      if (!confirm('Clear all entries?')) return;
+      state.transactions = [];
+      persistState();
+      render();
+    });
+
+    hydrateState();
+  </script>
+</body>
+</html>
